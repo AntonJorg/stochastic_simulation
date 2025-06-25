@@ -308,9 +308,9 @@ def simulate_many(params: SimulationParams, n_iters: int):
     }
 
     df = pd.DataFrame(
-        {name: np.percentile(arr, [90, 95, 99]) for name, arr in data.items()},
-        index=['90th', '95th', '99th']
+        {name: np.percentile(arr, [50, 90, 95, 99]) for name, arr in data.items()},
+        index=['50th', '90th', '95th', '99th']
     ).T
 
-    return buffers
+    return df
     
