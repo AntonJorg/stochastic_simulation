@@ -1,9 +1,11 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from enum import IntEnum
 from dataclasses import dataclass
 from heapq import heapify, heappop, heappush
 from scipy.stats import expon
+
 
 
 class Buffer(IntEnum):
@@ -319,3 +321,35 @@ def simulate_many(params: SimulationParams, n_iters: int):
     ).T
 
     return buffers, demands, np.concatenate(arrival_times), np.concatenate(discharge_times), df
+
+
+def plot_result(params, buffers, demands, arrivals, discharges):
+    fig, ax = plt.subplots(3, params.n_elevators + 1, figsize=(20, 6))
+
+    for i in range(3):
+        for j in range(params.n_elevators + 1):
+            ax[i, j].set_xlim(0, 24)
+
+    t = np.linspace(0, 24, buffers.shape[-1])
+
+    bufnames = ["Dirty", "Clean"]
+
+    for buftype in [0, 1]:
+        for i in range(params.n_elevators + 1):
+            placename = "Washer" if i == 0 else f"Elevator {i}"
+            buf = buffers[:, buftype, i, :]
+            ax[buftype, i].set_title(f"{placename}, {bufnames[buftype]} Buffer")
+            ax[buftype, i].plot(t, np.mean(buf, axis=0))
+            ax[buftype, i].fill_between(t, np.mean(buf, axis=0) - np.std(buf, axis=0), np.mean(buf, axis=0) + np.std(buf, axis=0), alpha=0.5)
+
+    for i in range(1, params.n_elevators + 1):
+        buf = demands[:, i, :]
+        ax[2, i].plot(t, np.mean(buf, axis=0))
+        ax[2, i].fill_between(t, np.mean(buf, axis=0) - np.std(buf, axis=0), np.mean(buf, axis=0) + np.std(buf, axis=0), alpha=0.5)
+
+    ax[2, 0].hist(arrivals, bins=24, alpha=0.5, label="Arrivals")
+    ax[2, 0].hist(discharges, bins=24, alpha=0.5, label="Discharges")
+    ax[2, 0].legend()
+
+    plt.tight_layout()
+    plt.show()
