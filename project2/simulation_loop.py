@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from enum import IntEnum
 from dataclasses import dataclass
 from heapq import heapify, heappop, heappush
@@ -86,7 +87,7 @@ class SimulationParams:
     n_robots: int
 
 
-def simulate_system(params: SimulationParams):
+def simulate_system(params: SimulationParams, verbose=False):
 
     discharge_dist = params.discharge_dist
     arrival_dist = params.arrival_dist
@@ -126,14 +127,12 @@ def simulate_system(params: SimulationParams):
 
     washer_ready = True
 
-    iterations = 0
     while events:
-        iterations += 1
-        if iterations > 10000:
-            break
-
+    
         event = heappop(events)
-        event.print()
+        
+        if verbose:
+            event.print()
 
         match event:
             case PatientArrived(time=t):
@@ -244,7 +243,6 @@ def simulate_system(params: SimulationParams):
         demand_list.append(demand.copy())
         times.append(event.time)
 
-        verbose = True
         if verbose:
             print("Buffers")
             print(buffers)
@@ -266,3 +264,30 @@ def simulate_system(params: SimulationParams):
     }
 
     return events_processed, data
+
+def simulate_many(params: SimulationParams, n_iters: int):
+
+    max_clean_buffer_sizes = np.empty(n_iters)
+    max_dirty_buffer_sizes = np.empty(n_iters)
+    max_demand = np.empty(n_iters)
+
+    for n in range(n_iters):
+        _, data = simulate_system(params)
+
+        max_clean_buffer_sizes[n] = np.max(data["buffers"][Buffer.CLEAN])
+        max_dirty_buffer_sizes[n] = np.max(data["buffers"][Buffer.DIRTY])
+        max_demand[n] = np.max(data["demands"])
+    
+    data = {
+        "Clean buffer (daily max)": max_clean_buffer_sizes,
+        "Dirty buffer (daily max)": max_dirty_buffer_sizes,
+        "Bed demand (daily max)": max_demand,
+    }
+
+    df = pd.DataFrame(
+        {name: np.percentile(arr, [90, 95, 99]) for name, arr in data.items()},
+        index=['90th', '95th', '99th']
+    ).T
+
+    return df
+    
