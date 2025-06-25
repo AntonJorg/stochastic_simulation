@@ -81,7 +81,6 @@ class DropOffBed(Event):
 @dataclass
 class SimulationParams:
     discharge_dist : callable
-    arrival_dist: callable
     service_time_dist : callable
     transport_time_dist : callable
     distance_matrix: np.ndarray
@@ -94,7 +93,6 @@ class SimulationParams:
 def simulate_system(params: SimulationParams, verbose=False):
 
     discharge_dist = params.discharge_dist
-    arrival_dist = params.arrival_dist
     service_time_dist = params.service_time_dist
     transport_time_dist = params.transport_time_dist
     distance_matrix = params.distance_matrix
@@ -284,6 +282,10 @@ def simulate_many(params: SimulationParams, n_iters: int):
     max_demand = np.empty(n_iters)
 
     buffers = np.empty((n_iters, 2, params.n_elevators + 1, n_points))
+    demands = np.empty((n_iters, params.n_elevators + 1, n_points))
+
+    arrival_times = []
+    discharge_times = []
 
     for n in range(n_iters):
         _, data = simulate_system(params)
@@ -296,6 +298,10 @@ def simulate_many(params: SimulationParams, n_iters: int):
         indices = np.searchsorted(times, new_time, side='right') - 1
 
         buffers[n] = data["buffers"][:, :, indices] 
+        demands[n] = data["demands"][:, indices]
+
+        arrival_times.append(data["arrivals"])
+        discharge_times.append(data["discharges"])
 
         max_clean_buffer_sizes[n] = np.max(data["buffers"][Buffer.CLEAN])
         max_dirty_buffer_sizes[n] = np.max(data["buffers"][Buffer.DIRTY])
@@ -312,5 +318,5 @@ def simulate_many(params: SimulationParams, n_iters: int):
         index=['90th', '95th', '99th']
     ).T
 
-    return buffers
+    return buffers, demands, np.concatenate(arrival_times), np.concatenate(discharge_times)
     
