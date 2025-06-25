@@ -318,4 +318,4 @@ def simulate_many(params: SimulationParams, n_iters: int):
         index=['50th', '90th', '95th', '99th']
     ).T
 
-    return buffers, demands, np.concatenate(arrival_times), np.concatenate(discharge_times)
+    return buffers, demands, np.concatenate(arrival_times), np.concatenate(discharge_times), df
