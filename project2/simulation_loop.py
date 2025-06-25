@@ -3,6 +3,7 @@ import pandas as pd
 from enum import IntEnum
 from dataclasses import dataclass
 from heapq import heapify, heappop, heappush
+from scipy.stats import expon
 
 
 class Buffer(IntEnum):
@@ -61,6 +62,10 @@ class RobotsUpdated(Event):
     pass
 
 @decorate_event
+class RobotsDispatched(Event):
+    robot_id: int
+
+@decorate_event
 class PickUpBed(Event):
     robot_id: int
     location_id: int
@@ -82,7 +87,6 @@ class SimulationParams:
     distance_matrix: np.ndarray
     arrival_weights: np.ndarray
     discharge_weights: np.ndarray
-    n_patients: int
     n_elevators: int
     n_robots: int
 
@@ -94,7 +98,6 @@ def simulate_system(params: SimulationParams, verbose=False):
     service_time_dist = params.service_time_dist
     transport_time_dist = params.transport_time_dist
     distance_matrix = params.distance_matrix
-    n_patients = params.n_patients
     n_elevators = params.n_elevators
     n_robots = params.n_robots
     arrival_weights = params.arrival_weights
@@ -113,8 +116,8 @@ def simulate_system(params: SimulationParams, verbose=False):
     robot_traveling = np.zeros(n_robots, dtype=bool)
     robot_beds = np.zeros(n_robots, dtype=bool)
 
-    discharge_times = discharge_dist.rvs(size=n_patients)
-    arrival_times = arrival_dist.rvs(size=n_patients)
+    discharge_times = discharge_dist()
+    arrival_times = discharge_times + expon(scale=1).rvs(size=discharge_times.shape[0])
 
     events = [PatientDischarged(time) for time in discharge_times]
     events += [PatientArrived(time) for time in arrival_times]
@@ -185,6 +188,7 @@ def simulate_system(params: SimulationParams, verbose=False):
                         reserved[Buffer.DIRTY, location_id] += 1
 
                         transport_time = transport_time_dist(distance_matrix[robot_location[robot_id], location_id])
+                        heappush(events, RobotsDispatched(t, robot_id))
                         heappush(events, PickUpBed(t + transport_time, robot_id, location_id, Buffer.DIRTY))    
                         dispatched = True
 
@@ -195,6 +199,7 @@ def simulate_system(params: SimulationParams, verbose=False):
                         reserved[Buffer.CLEAN, location_id] += 1
 
                         transport_time = transport_time_dist(distance_matrix[robot_location[robot_id], location_id])
+                        heappush(events, RobotsDispatched(t, robot_id))
                         heappush(events, PickUpBed(t + transport_time, robot_id, location_id, Buffer.CLEAN))
                     #print(robot_location)
                     #print(buffers)
@@ -236,6 +241,10 @@ def simulate_system(params: SimulationParams, verbose=False):
 
                 heappush(events, RobotsUpdated(t))
 
+            case RobotsDispatched():
+                # only for animation purposes
+                pass
+
             case _:
                 raise ValueError("Unknown event type!")
 
@@ -255,6 +264,8 @@ def simulate_system(params: SimulationParams, verbose=False):
 
         events_processed.append(event)
 
+    assert np.all(buffers[Buffer.DIRTY] == 0)
+
     data = {
         "buffers": np.stack(buffer_list, axis=-1),
         "demands": np.stack(demand_list, axis=-1),
@@ -266,18 +277,30 @@ def simulate_system(params: SimulationParams, verbose=False):
     return events_processed, data
 
 def simulate_many(params: SimulationParams, n_iters: int):
+    n_points = 24 * 4 + 1
 
     max_clean_buffer_sizes = np.empty(n_iters)
     max_dirty_buffer_sizes = np.empty(n_iters)
     max_demand = np.empty(n_iters)
 
+    buffers = np.empty((n_iters, 2, params.n_elevators + 1, n_points))
+
     for n in range(n_iters):
         _, data = simulate_system(params)
+
+        times = data["times"]
+        # New time range
+        new_time = np.linspace(0, 24, n_points)
+
+        # Find indices for forward fill
+        indices = np.searchsorted(times, new_time, side='right') - 1
+
+        buffers[n] = data["buffers"][:, :, indices] 
 
         max_clean_buffer_sizes[n] = np.max(data["buffers"][Buffer.CLEAN])
         max_dirty_buffer_sizes[n] = np.max(data["buffers"][Buffer.DIRTY])
         max_demand[n] = np.max(data["demands"])
-    
+
     data = {
         "Clean buffer (daily max)": max_clean_buffer_sizes,
         "Dirty buffer (daily max)": max_dirty_buffer_sizes,
@@ -289,5 +312,5 @@ def simulate_many(params: SimulationParams, n_iters: int):
         index=['90th', '95th', '99th']
     ).T
 
-    return df
+    return buffers
     
