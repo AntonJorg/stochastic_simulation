@@ -112,9 +112,9 @@ class HospitalSimulation:
 
                     assert washer_start_time is None, "Washer should not be busy"
                 
-                # case BedStartedWashing(time=t):
-                #     assert washer_start_time is None, "Washer should not be busy"
-                #     washer_start_time = _convert_time(t)
+                case BedStartedWashing(time=t):
+                    assert washer_start_time is None, "Washer should not be busy"
+                    washer_start_time = _convert_time(t)
 
                 case BedFinishedWashing(time=t):
                     robot_update_time = t
@@ -228,7 +228,7 @@ class HospitalSimulation:
 
 
 if __name__ == "__main__":
-    with open("project2/events.pkl", "rb") as f:
+    with open("events.pkl", "rb") as f:
         events = pickle.load(f)
     sim = HospitalSimulation(events)
     sim.run()
