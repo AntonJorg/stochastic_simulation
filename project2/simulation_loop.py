@@ -178,10 +178,23 @@ def simulate_system(params: SimulationParams, verbose=False):
             case RobotsUpdated(time=t):
                 available_robots = np.where(~robot_traveling)[0]
                 for robot_id in available_robots:
+                    robot_loc = robot_location[robot_id]
                     dispatched = False
                     available_beds = buffers - reserved
+
+                    # Pick up bed when traveling to 
+                    if available_beds[:, robot_loc].sum() > 0:
+                        target_buffer = Buffer.CLEAN if robot_loc == 0 else Buffer.DIRTY
+                        if available_beds[target_buffer, robot_loc] > 0:
+                            transport_time = transport_time_dist(distance_matrix[robot_loc, robot_loc])
+                            reserved[target_buffer, robot_loc] += 1
+                            heappush(events, RobotsDispatched(t, robot_id))
+                            heappush(events, PickUpBed(t + transport_time, robot_id, robot_loc, target_buffer))    
+                            robot_traveling[robot_id] = True
+                            dispatched = True
+
                     # handle dirty beds first
-                    if np.any(available_beds[Buffer.DIRTY, 1:] != 0):
+                    if not dispatched and np.any(available_beds[Buffer.DIRTY, 1:] != 0):
                         location_id = np.argmax(available_beds[Buffer.DIRTY, 1:]) + 1
                         robot_traveling[robot_id] = True
 
@@ -275,7 +288,7 @@ def simulate_system(params: SimulationParams, verbose=False):
     }
 
     return events_processed, data
-
+from tqdm import tqdm
 def simulate_many(params: SimulationParams, n_iters: int):
     n_points = 24 * 4 + 1
 
@@ -289,7 +302,7 @@ def simulate_many(params: SimulationParams, n_iters: int):
     arrival_times = []
     discharge_times = []
 
-    for n in range(n_iters):
+    for n in tqdm(range(n_iters)):
         _, data = simulate_system(params)
 
         times = data["times"]
@@ -353,3 +366,59 @@ def plot_result(params, buffers, demands, arrivals, discharges):
 
     plt.tight_layout()
     plt.show()
+
+
+if __name__ == "__main__":
+    from scipy.stats import norm, gamma, uniform
+
+    def service_time_dist():
+        service_min_time = 5/60
+        return service_min_time + expon(scale=1/60).rvs()
+
+
+    def transport_time_dist(distance_meters):
+        if distance_meters == 0:
+            return 0
+        speed_meters_per_second = 1.4
+        transport_time_seconds = gamma(a=distance_meters, scale=1/speed_meters_per_second).rvs()
+        return transport_time_seconds / 3600
+
+    distances = np.array([
+        [10, 175, 0],
+        [175, 10, 175],
+        [0, 175, 10],
+    ])
+
+    class ArrivalDistribution:
+        first_round_time = 9
+        second_round_time = 15
+        def __init__(self, p=0.5, offset=0):
+            self.p = p
+            self.first_peak = norm(loc=10 + offset, scale=1)
+            self.second_peak = norm(loc=15 + offset, scale=1.5)
+
+        def pdf(self, x):
+            return self.p * self.first_peak.pdf(x) + (1 - self.p) * self.second_peak.pdf(x)
+
+        def rvs(self, size=()):
+            s1 = self.first_peak.rvs(size=size)
+            s2 = self.second_peak.rvs(size=size)
+            choice = uniform.rvs(size=size) < self.p
+            return np.where(choice, s1, s2)
+    n_elevators = 1
+    discharge_dist = lambda: ArrivalDistribution().rvs(size=200)
+
+    params = SimulationParams(
+        discharge_dist,
+        service_time_dist,
+        transport_time_dist,
+        distances,
+        arrival_weights=np.ones(n_elevators) / n_elevators,
+        discharge_weights=np.ones(n_elevators) / n_elevators,
+        n_elevators=n_elevators,
+        n_robots=2,
+    )
+
+    events, data = simulate_system(params)
+    print(events)
+    # discharge_dist()
