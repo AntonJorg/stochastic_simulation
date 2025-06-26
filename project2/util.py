@@ -55,6 +55,10 @@ class RobotsUpdated(Event):
     pass
 
 @decorate_event
+class RobotsDispatched(Event):
+    robot_id: int
+
+@decorate_event
 class PickUpBed(Event):
     robot_id: int
     location_id: int
@@ -64,7 +68,6 @@ class PickUpBed(Event):
 class DropOffBed(Event):
     robot_id: int
     location_id: int
-    buffer: Buffer
 
 
 ########################### 
@@ -84,6 +87,7 @@ class ElevatorAnim(Anim):
 class BotAnim(Anim):
     bot_id: int
     location_id: int
+    buffer: Buffer
 
 @decorate_event
 class WasherAnim(Anim):
