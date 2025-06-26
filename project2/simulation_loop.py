@@ -336,36 +336,52 @@ def simulate_many(params: SimulationParams, n_iters: int):
     return buffers, demands, np.concatenate(arrival_times), np.concatenate(discharge_times), df
 
 
-def plot_result(params, buffers, demands, arrivals, discharges):
-    fig, ax = plt.subplots(3, params.n_elevators + 1, figsize=(20, 6))
+import numpy as np
+import matplotlib.pyplot as plt
 
-    for i in range(3):
-        for j in range(params.n_elevators + 1):
-            ax[i, j].set_xlim(0, 24)
+def plot_result(params, buffers, demands, arrivals, discharges):
+    fig, ax = plt.subplots(3, params.n_elevators + 1, figsize=(20, 8), sharex=True)
 
     t = np.linspace(0, 24, buffers.shape[-1])
-
     bufnames = ["Dirty", "Clean"]
 
     for buftype in [0, 1]:
         for i in range(params.n_elevators + 1):
             placename = "Washer" if i == 0 else f"Elevator {i}"
             buf = buffers[:, buftype, i, :]
+
             ax[buftype, i].set_title(f"{placename}, {bufnames[buftype]} Buffer")
-            ax[buftype, i].plot(t, np.mean(buf, axis=0))
-            ax[buftype, i].fill_between(t, np.mean(buf, axis=0) - np.std(buf, axis=0), np.mean(buf, axis=0) + np.std(buf, axis=0), alpha=0.5)
+            mean = np.mean(buf, axis=0)
+            sem = np.std(buf, axis=0, ddof=1) / np.sqrt(buf.shape[0])
+            ci95 = 1.96 * sem
+            ax[buftype, i].plot(t, mean)
+            ax[buftype, i].fill_between(t, mean - ci95, mean + ci95, alpha=0.5)
+            ax[buftype, i].grid(True, axis='y', linestyle='--', alpha=0.5)
 
     for i in range(1, params.n_elevators + 1):
         buf = demands[:, i, :]
-        ax[2, i].plot(t, np.mean(buf, axis=0))
-        ax[2, i].fill_between(t, np.mean(buf, axis=0) - np.std(buf, axis=0), np.mean(buf, axis=0) + np.std(buf, axis=0), alpha=0.5)
+        mean = np.mean(buf, axis=0)
+        sem = np.std(buf, axis=0, ddof=1) / np.sqrt(buf.shape[0])
+        ci95 = 1.96 * sem
+        ax[2, i].plot(t, mean)
+        ax[2, i].fill_between(t, mean - ci95, mean + ci95, alpha=0.5)
+        ax[2, i].grid(True, axis='y', linestyle='--', alpha=0.5)
 
     ax[2, 0].hist(arrivals, bins=24, alpha=0.5, label="Arrivals")
     ax[2, 0].hist(discharges, bins=24, alpha=0.5, label="Discharges")
     ax[2, 0].legend()
+    ax[2, 0].set_title("Arrivals and Discharges")
+    ax[2, 0].grid(True, axis='y', linestyle='--', alpha=0.5)
 
-    plt.tight_layout()
+    # Add a common x-axis label
+    fig.text(0.5, 0.04, "Time (hours)", ha='center')
+
+    # Optional super title
+    fig.suptitle("System Buffers and Patient Flow Over Time", fontsize=28)
+
+    fig.tight_layout(rect=[0, 0.05, 1, 0.95])
     plt.show()
+
 
 
 if __name__ == "__main__":
@@ -404,8 +420,13 @@ if __name__ == "__main__":
         n_robots=1,
     )
 
-    events, data = simulate_system(params)
+    # events, data = simulate_system(params)
+
+    buffers, demands, arrival_times, discharge_times, df = simulate_many(params, n_iters=10)
+    plot_result(params, buffers, demands, arrival_times, discharge_times)
     
-    with open("events.pkl", "wb") as f:
-        pickle.dump(events, f)
-    print(events)
+    # with open("events.pkl", "wb") as f:
+    #     pickle.dump(events, f)
+    # print(events)
+    # cd C:/Users/Jason/OneDrive - Danmarks Tekniske Universitet/Masters/2_Semester/Stochastic_Simulation/stochastic_simulation/project2/
+    # python simulation_loop.py
