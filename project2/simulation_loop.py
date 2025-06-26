@@ -340,6 +340,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 def plot_result(params, buffers, demands, arrivals, discharges, filename, title):
+    plt.rcParams.update({'font.size': 14}) 
     fig, ax = plt.subplots(3, params.n_elevators + 1, figsize=(20, 8), sharex=True)
 
     t = np.linspace(0, 24, buffers.shape[-1])
@@ -367,8 +368,14 @@ def plot_result(params, buffers, demands, arrivals, discharges, filename, title)
             ax[buftype, i].fill_between(t, lower, upper, alpha=0.5, label='95% interval')
             ax[buftype, i].grid(True, axis='y', linestyle='--', alpha=0.5)
 
-    df = pd.DataFrame(max_percentiles)
+
+    column_labels = ["Bed Wash"] + [f"Elevator {i+1}" for i in range(params.n_elevators)]
+    df = pd.DataFrame(max_percentiles, index=bufnames, columns=column_labels)
     print(df)
+
+    with open(f"results/{filename}.tex", "w") as f:
+        latex = df.to_latex(index=True)
+        f.write(latex)
 
     ax[0, params.n_elevators].legend()
 
@@ -398,7 +405,7 @@ def plot_result(params, buffers, demands, arrivals, discharges, filename, title)
     fig.text(0.5, 0.04, "Time (hours)", ha='center')
 
     # Optional super title
-    fig.suptitle("System Buffers and Patient Flow Over Time", fontsize=28)
+    fig.suptitle(f"{title}: System Buffers and Patient Flow Over Time", fontsize=18)
 
     fig.tight_layout(rect=[0, 0.05, 1, 0.95])
     plt.savefig(f"results/{filename}.pdf", format="pdf")
