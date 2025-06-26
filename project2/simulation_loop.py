@@ -370,6 +370,7 @@ def plot_result(params, buffers, demands, arrivals, discharges):
 
 if __name__ == "__main__":
     from scipy.stats import norm, gamma, uniform
+    import pickle
 
     def service_time_dist():
         service_min_time = 5/60
@@ -389,24 +390,8 @@ if __name__ == "__main__":
         [0, 175, 10],
     ])
 
-    class ArrivalDistribution:
-        first_round_time = 9
-        second_round_time = 15
-        def __init__(self, p=0.5, offset=0):
-            self.p = p
-            self.first_peak = norm(loc=10 + offset, scale=1)
-            self.second_peak = norm(loc=15 + offset, scale=1.5)
-
-        def pdf(self, x):
-            return self.p * self.first_peak.pdf(x) + (1 - self.p) * self.second_peak.pdf(x)
-
-        def rvs(self, size=()):
-            s1 = self.first_peak.rvs(size=size)
-            s2 = self.second_peak.rvs(size=size)
-            choice = uniform.rvs(size=size) < self.p
-            return np.where(choice, s1, s2)
+    discharge_dist = lambda: np.cumsum(expon(scale=1/12).rvs(size=270))
     n_elevators = 1
-    discharge_dist = lambda: ArrivalDistribution().rvs(size=200)
 
     params = SimulationParams(
         discharge_dist,
@@ -416,9 +401,11 @@ if __name__ == "__main__":
         arrival_weights=np.ones(n_elevators) / n_elevators,
         discharge_weights=np.ones(n_elevators) / n_elevators,
         n_elevators=n_elevators,
-        n_robots=2,
+        n_robots=1,
     )
 
     events, data = simulate_system(params)
+    
+    with open("events.pkl", "wb") as f:
+        pickle.dump(events, f)
     print(events)
-    # discharge_dist()
