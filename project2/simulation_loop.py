@@ -290,7 +290,7 @@ def simulate_system(params: SimulationParams, verbose=False, lambda_arrival=1.0)
     return events_processed, data
 from tqdm import tqdm
 def simulate_many(params: SimulationParams, n_iters: int, **kwargs):
-    n_points = 24 * 4 + 1
+    n_points = 24 * 12 + 1
 
     max_clean_buffer_sizes = np.empty(n_iters)
     max_dirty_buffer_sizes = np.empty(n_iters)
@@ -339,11 +339,13 @@ def simulate_many(params: SimulationParams, n_iters: int, **kwargs):
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_result(params, buffers, demands, arrivals, discharges):
+def plot_result(params, buffers, demands, arrivals, discharges, filename, title):
     fig, ax = plt.subplots(3, params.n_elevators + 1, figsize=(20, 8), sharex=True)
 
     t = np.linspace(0, 24, buffers.shape[-1])
     bufnames = ["Dirty", "Clean"]
+
+    max_percentiles = np.empty((2, params.n_elevators + 1))
 
     for buftype in [0, 1]:
         for i in range(params.n_elevators + 1):
@@ -354,16 +356,21 @@ def plot_result(params, buffers, demands, arrivals, discharges):
             # Compute 2.5th and 97.5th percentiles for 95% interval
             lower = np.percentile(buf, 2.5, axis=0)
             upper = np.percentile(buf, 97.5, axis=0)
-            upper_99 = max(np.percentile(buf, 97.5, axis=0))
-            print(f"99th percentile for {placename} {bufnames[buftype]} buffer: {upper_99:.2f}")
+            upper_99 = np.percentile(np.max(buf, axis=1), 99)
+            max_percentiles[buftype, i] = upper_99
             mean = np.mean(buf, axis=0)
             #sem = np.std(buf, axis=0, ddof=1) / np.sqrt(buf.shape[0])
             #ci95 = 1.96 * sem
-            ax[buftype, i].plot(t, mean)
             #ax[buftype, i].fill_between(t, mean - ci95, mean + ci95, alpha=0.5)
-            ax[buftype, i].axhline(upper_99, color='red', linestyle='--', label='Max 99th percentile')
-            ax[buftype, i].fill_between(t, lower, upper, alpha=0.5, label='95% percentile')
+            ax[buftype, i].axhline(upper_99, color='red', linestyle='--', label='99th percentile of maximum')
+            ax[buftype, i].plot(t, mean, label="Mean")
+            ax[buftype, i].fill_between(t, lower, upper, alpha=0.5, label='95% interval')
             ax[buftype, i].grid(True, axis='y', linestyle='--', alpha=0.5)
+
+    df = pd.DataFrame(max_percentiles)
+    print(df)
+
+    ax[0, params.n_elevators].legend()
 
     for i in range(1, params.n_elevators + 1):
         buf = demands[:, i, :]
@@ -373,10 +380,13 @@ def plot_result(params, buffers, demands, arrivals, discharges):
         #sem = np.std(buf, axis=0, ddof=1) / np.sqrt(buf.shape[0])
         #ci95 = 1.96 * sem
         ax[2, i].set_title(f"Elevator {i}, Bed Demand")
-        ax[2, i].plot(t, mean)
-        ax[2, i].fill_between(t, lower, upper, alpha=0.5, label='95% percentile')
+        ax[2, i].plot(t, mean, label="Mean")
+        ax[2, i].fill_between(t, lower, upper, alpha=0.5, label='95% interval')
         #ax[2, i].fill_between(t, mean - ci95, mean + ci95, alpha=0.5)
         ax[2, i].grid(True, axis='y', linestyle='--', alpha=0.5)
+
+
+    ax[2, params.n_elevators].legend()
 
     ax[2, 0].hist(arrivals, bins=24, alpha=0.5, label="Arrivals")
     ax[2, 0].hist(discharges, bins=24, alpha=0.5, label="Discharges")
@@ -391,6 +401,7 @@ def plot_result(params, buffers, demands, arrivals, discharges):
     fig.suptitle("System Buffers and Patient Flow Over Time", fontsize=28)
 
     fig.tight_layout(rect=[0, 0.05, 1, 0.95])
+    plt.savefig(f"results/{filename}.pdf", format="pdf")
     plt.show()
 
 
