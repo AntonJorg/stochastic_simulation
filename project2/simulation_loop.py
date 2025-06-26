@@ -355,6 +355,7 @@ def plot_result(params, buffers, demands, arrivals, discharges):
             lower = np.percentile(buf, 2.5, axis=0)
             upper = np.percentile(buf, 97.5, axis=0)
             upper_99 = max(np.percentile(buf, 97.5, axis=0))
+            print(f"99th percentile for {placename} {bufnames[buftype]} buffer: {upper_99:.2f}")
             mean = np.mean(buf, axis=0)
             #sem = np.std(buf, axis=0, ddof=1) / np.sqrt(buf.shape[0])
             #ci95 = 1.96 * sem
