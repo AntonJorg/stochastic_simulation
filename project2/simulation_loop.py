@@ -92,7 +92,7 @@ class SimulationParams:
     n_robots: int
 
 
-def simulate_system(params: SimulationParams, verbose=False):
+def simulate_system(params: SimulationParams, verbose=False, lambda_arrival=1.0):
 
     discharge_dist = params.discharge_dist
     service_time_dist = params.service_time_dist
@@ -117,7 +117,7 @@ def simulate_system(params: SimulationParams, verbose=False):
     robot_beds = np.zeros(n_robots, dtype=bool)
 
     discharge_times = discharge_dist()
-    arrival_times = discharge_times + expon(scale=1).rvs(size=discharge_times.shape[0])
+    arrival_times = discharge_times + expon(scale=lambda_arrival).rvs(size=discharge_times.shape[0])
 
     events = [PatientDischarged(time) for time in discharge_times]
     events += [PatientArrived(time) for time in arrival_times]
@@ -289,7 +289,7 @@ def simulate_system(params: SimulationParams, verbose=False):
 
     return events_processed, data
 from tqdm import tqdm
-def simulate_many(params: SimulationParams, n_iters: int):
+def simulate_many(params: SimulationParams, n_iters: int, **kwargs):
     n_points = 24 * 4 + 1
 
     max_clean_buffer_sizes = np.empty(n_iters)
