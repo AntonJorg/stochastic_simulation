@@ -92,7 +92,6 @@ class HospitalSimulation:
         time_unit = 50
         start_time = events[0].time / time_unit # Start after 1 second
         animations = []  # Sorted by start time
-        bots = [None] * 2  # Two robots
         
         washer_start_time = None
         pushing_bed = None
@@ -106,7 +105,7 @@ class HospitalSimulation:
 
                 case BedArrivedElevator(time=t, elevator_id=elevator_id, buffer=buffer):
                     # assert self.elevator.state == 0.0, "Elevator should be idle"
-                    animations.append(ElevatorAnim(start=_convert_time(t), duration=_convert_time(t - 1), elevator_id=elevator_id))
+                    animations.append(ElevatorAnim(start=_convert_time(t), duration=1, elevator_id=elevator_id))
 
                 # Robot stuff
                 case RobotsDispatched(time=t, robot_id=bot_id):
@@ -128,16 +127,16 @@ class HospitalSimulation:
                     animations.append(BotAnim(start=_convert_time(robot_dispatched), duration=duration, bot_id=bot_id, location_id=location_id, buffer=pushing_bed))
                     robot_dispatched = None
                 
-                # case BedStartedWashing(time=t):
-                #     # print(f"Bed started washing at {t}")
-                #     # quit()
-                #     assert washer_start_time is None, "Washer should not be busy"
-                #     washer_start_time = t
+                case BedStartedWashing(time=t):
+                    # print(f"Bed started washing at {t}")
+                    # quit()
+                    assert washer_start_time is None, "Washer should not be busy"
+                    washer_start_time = t
                 
-                # case BedFinishedWashing(time=t):
-                #     assert washer_start_time is not None, "Washer should be busy"
-                #     animations.append(WasherAnim(start=_convert_time(washer_start_time), duration= _convert_time(t - washer_start_time)))
-                #     washer_start_time = None
+                case BedFinishedWashing(time=t):
+                    assert washer_start_time is not None, "Washer should be busy"
+                    animations.append(WasherAnim(start=_convert_time(washer_start_time), duration= _convert_time(t - washer_start_time)))
+                    washer_start_time = None
 
                 # case BedFinishedWashing(time=t):
                 #     robot_dispatched = t
@@ -163,6 +162,8 @@ class HospitalSimulation:
         
         # Add dummy event to let animations finish
         animations.append(ElevatorAnim(start=animations[-1].start + 10.0, duration=1, elevator_id=0))
+        # sort animations by start time
+        animations.sort(key=lambda x: x.start)
         return animations
 
     def run(self):
