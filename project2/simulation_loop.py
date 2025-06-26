@@ -303,7 +303,7 @@ def simulate_many(params: SimulationParams, n_iters: int, **kwargs):
     discharge_times = []
 
     for n in tqdm(range(n_iters)):
-        _, data = simulate_system(params)
+        _, data = simulate_system(params, lambda_arrival=kwargs.get("lambda_arrival", 1.0))
 
         times = data["times"]
         # New time range
