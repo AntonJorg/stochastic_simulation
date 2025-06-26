@@ -354,11 +354,13 @@ def plot_result(params, buffers, demands, arrivals, discharges):
             # Compute 2.5th and 97.5th percentiles for 95% interval
             lower = np.percentile(buf, 2.5, axis=0)
             upper = np.percentile(buf, 97.5, axis=0)
+            upper_99 = max(np.percentile(buf, 97.5, axis=0))
             mean = np.mean(buf, axis=0)
             #sem = np.std(buf, axis=0, ddof=1) / np.sqrt(buf.shape[0])
             #ci95 = 1.96 * sem
             ax[buftype, i].plot(t, mean)
             #ax[buftype, i].fill_between(t, mean - ci95, mean + ci95, alpha=0.5)
+            ax[buftype, i].axhline(upper_99, color='red', linestyle='--', label='Max 99th percentile')
             ax[buftype, i].fill_between(t, lower, upper, alpha=0.5, label='95% percentile')
             ax[buftype, i].grid(True, axis='y', linestyle='--', alpha=0.5)
 
